@@ -19,7 +19,7 @@ class DatadogCostClient:
     """Client for fetching cost and usage data from Datadog API"""
     
     def __init__(self, api_key: Optional[str] = None, app_key: Optional[str] = None, 
-                 site: str = "datadoghq.com"):
+                 site: Optional[str] = None):
         """
         Initialize Datadog API client
         
@@ -30,6 +30,7 @@ class DatadogCostClient:
         """
         self.api_key = api_key or os.getenv("DD_API_KEY")
         self.app_key = app_key or os.getenv("DD_APP_KEY")
+        # Respect environment variable when no explicit site is provided
         self.site = site or os.getenv("DD_SITE", "datadoghq.com")
         
         if not self.api_key or not self.app_key:

@@ -340,10 +340,10 @@ def create_notebook(ctx, weeks, title, tags, update_existing, include_daily_delt
     try:
         config_manager = ctx.obj['config_manager']
         
-        # Get API credentials
-        api_key = config_manager.get_value('datadog.api_key')
-        app_key = config_manager.get_value('datadog.app_key')
-        site = config_manager.get_value('datadog.site', 'datadoghq.com')
+        # Get API credentials (fallback to env when not set in config)
+        api_key = config_manager.get_value('datadog.api_key') or os.getenv('DD_API_KEY')
+        app_key = config_manager.get_value('datadog.app_key') or os.getenv('DD_APP_KEY')
+        site = config_manager.get_value('datadog.site') or os.getenv('DD_SITE', 'datadoghq.com')
         
         if not api_key or not app_key:
             click.echo("Error: Datadog API credentials not configured. Run 'configure' command first.", err=True)
