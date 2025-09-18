@@ -38,14 +38,16 @@ run_cost_analyzer:
     DD_SITE: ${DD_SITE:-datadoghq.com}
   script:
     - echo "Running cost analyzer to create/update Datadog notebook..."
-    - python -m datadog_cost_analyzer.cli test-connection || echo "[WARNING] API connection test failed"
     - |
-      if [ -n "$DD_API_KEY" ] && [ -n "$DD_APP_KEY" ]; then
-        echo "Creating daily-delta notebook..."
-        python -m datadog_cost_analyzer.cli create_notebook --weeks 12 --include-daily-delta -t "Automated Daily Delta Notebook"
+      if python -m datadog_cost_analyzer.cli test-connection; then
+        if [ -n "$DD_API_KEY" ] && [ -n "$DD_APP_KEY" ]; then
+          echo "Creating daily-delta notebook..."
+          python -m datadog_cost_analyzer.cli create-notebook --weeks 12 --include-daily-delta -t "Automated Daily Delta Notebook"
+        else
+          echo "DD_API_KEY/DD_APP_KEY not provided. Skipping notebook creation."
+        fi
       else
-        echo "DD_API_KEY/DD_APP_KEY not provided. Skipping notebook creation."
-        exit 0
+        echo "[WARNING] API connection test failed. Skipping notebook creation."
       fi
   only:
     - branches
