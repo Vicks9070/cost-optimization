@@ -40,9 +40,9 @@ validate_config:
   script:
     - echo "Validating project configuration..."
     - python -c "import yaml; yaml.safe_load(open('config/config.yaml'))"
-    - echo "✅ Configuration file is valid YAML"
+    - echo "[OK] Configuration file is valid YAML"
     - python -m datadog_cost_analyzer.cli validate-config
-    - echo "✅ Application configuration validation passed"
+    - echo "[OK] Application configuration validation passed"
   artifacts:
     reports:
       junit: config-validation-report.xml
@@ -57,11 +57,11 @@ validate_imports:
   script:
     - echo "Validating Python imports..."
     - python -c "from datadog_cost_analyzer import DatadogCostClient, CostAnalyzer, AnomalyDetector, CostVisualizer"
-    - echo "✅ All main imports successful"
+    - echo "[OK] All main imports successful"
     - python -c "from datadog_cost_analyzer.cli import main"
-    - echo "✅ CLI import successful"
+    - echo "[OK] CLI import successful"
     - python -c "from datadog_cost_analyzer.web.app import create_app"
-    - echo "✅ Web app import successful"
+    - echo "[OK] Web app import successful"
   only:
     - branches
     - merge_requests
@@ -73,7 +73,7 @@ unit_tests:
   script:
     - echo "Running unit tests..."
     - python -m pytest tests/ -v --junitxml=test-results.xml --cov=src/datadog_cost_analyzer --cov-report=xml --cov-report=html --cov-report=term
-    - echo "✅ Unit tests completed"
+    - echo "[OK] Unit tests completed"
   coverage: '/TOTAL.*\s+(\d+%)$/'
   artifacts:
     reports:
@@ -101,12 +101,12 @@ integration_tests:
     - |
       if [ -n "$DD_API_KEY_TEST" ] && [ -n "$DD_APP_KEY_TEST" ]; then
         echo "Testing Datadog API connection..."
-        python -m datadog_cost_analyzer.cli test-connection || echo "⚠️ API connection test failed (expected in CI without real credentials)"
+        python -m datadog_cost_analyzer.cli test-connection || echo "[WARNING] API connection test failed (expected in CI without real credentials)"
         echo "Running demo with mock data..."
         python demo.py
-        echo "✅ Integration tests completed"
+        echo "[OK] Integration tests completed"
       else
-        echo "⚠️ Skipping integration tests - DD_API_KEY_TEST and DD_APP_KEY_TEST not set"
+        echo "[WARNING] Skipping integration tests - DD_API_KEY_TEST and DD_APP_KEY_TEST not set"
         echo "This is expected for security reasons in CI/CD"
       fi
   artifacts:
@@ -125,12 +125,12 @@ code_quality:
     - echo "Running code quality checks..."
     - pip install flake8 black mypy
     - echo "Checking code formatting with black..."
-    - black --check --diff src/ tests/ || (echo "❌ Code formatting issues found. Run 'black src/ tests/' to fix." && exit 1)
+    - black --check --diff src/ tests/ || (echo "[ERROR] Code formatting issues found. Run 'black src/ tests/' to fix." && exit 1)
     - echo "Running flake8 linting..."
     - flake8 src/ tests/ --max-line-length=100 --extend-ignore=E203,W503
     - echo "Running type checking with mypy..."
-    - mypy src/datadog_cost_analyzer/ --ignore-missing-imports || echo "⚠️ Type checking completed with warnings"
-    - echo "✅ Code quality checks completed"
+    - mypy src/datadog_cost_analyzer/ --ignore-missing-imports || echo "[WARNING] Type checking completed with warnings"
+    - echo "[OK] Code quality checks completed"
   allow_failure: true  # Allow failure for mypy warnings
   only:
     - branches
@@ -146,7 +146,7 @@ build_package:
     - python -m build
     - echo "Checking package integrity..."
     - twine check dist/*
-    - echo "✅ Package built successfully"
+    - echo "[OK] Package built successfully"
   artifacts:
     paths:
       - dist/
@@ -169,7 +169,7 @@ build_docker:
     - echo "Building Docker image..."
     - docker build -t $DOCKER_IMAGE_TAG .
     - docker push $DOCKER_IMAGE_TAG
-    - echo "✅ Docker image built and pushed: $DOCKER_IMAGE_TAG"
+    - echo "Docker image built and pushed successfully"
   only:
     - branches
     - merge_requests
@@ -182,10 +182,10 @@ security_scan:
     - echo "Running security scans..."
     - pip install safety bandit
     - echo "Checking for known security vulnerabilities in dependencies..."
-    - safety check --json --output safety-report.json || echo "⚠️ Security vulnerabilities found in dependencies"
+    - safety check --json --output safety-report.json || echo "[WARNING] Security vulnerabilities found in dependencies"
     - echo "Running static security analysis with bandit..."
-    - bandit -r src/ -f json -o bandit-report.json || echo "⚠️ Potential security issues found"
-    - echo "✅ Security scans completed"
+    - bandit -r src/ -f json -o bandit-report.json || echo "[WARNING] Potential security issues found"
+    - echo "[OK] Security scans completed"
   artifacts:
     paths:
       - safety-report.json
@@ -213,7 +213,7 @@ deploy_staging:
     - echo "In a real deployment, this would deploy to your staging environment"
     - echo "For now, we'll just validate the deployment configuration"
     - python -m datadog_cost_analyzer.cli validate-config
-    - echo "✅ Staging deployment validation completed"
+    - echo "[OK] Staging deployment validation completed"
     - echo "Application would be deployed to staging environment"
   only:
     - main
@@ -235,7 +235,7 @@ deploy_production:
     - echo "In a real deployment, this would deploy to your production environment"
     - echo "For now, we'll just validate the deployment configuration"
     - python -m datadog_cost_analyzer.cli validate-config
-    - echo "✅ Production deployment validation completed"
+    - echo "[OK] Production deployment validation completed"
     - echo "Application would be deployed to production environment"
   only:
     - main
@@ -250,7 +250,7 @@ cleanup:
   script:
     - echo "Cleaning up temporary files..."
     - rm -rf .cache/
-    - echo "✅ Cleanup completed"
+    - echo "[OK] Cleanup completed"
   when: always
 
 # Job for generating reports
@@ -261,27 +261,27 @@ generate_reports:
     - echo "Generating comprehensive project report..."
     - echo "# Pipeline Execution Report" > pipeline-report.md
     - echo "" >> pipeline-report.md
-    - echo "**Project:** Datadog Cost Analyzer" >> pipeline-report.md
-    - echo "**Commit:** $CI_COMMIT_SHA" >> pipeline-report.md
-    - echo "**Branch:** $CI_COMMIT_REF_NAME" >> pipeline-report.md
-    - echo "**Pipeline:** $CI_PIPELINE_ID" >> pipeline-report.md
-    - echo "**Triggered by:** $CI_COMMIT_AUTHOR_NAME" >> pipeline-report.md
+    - 'echo "**Project:** Datadog Cost Analyzer" >> pipeline-report.md'
+    - 'echo "**Commit:** $CI_COMMIT_SHA" >> pipeline-report.md'
+    - 'echo "**Branch:** $CI_COMMIT_REF_NAME" >> pipeline-report.md'
+    - 'echo "**Pipeline:** $CI_PIPELINE_ID" >> pipeline-report.md'
+    - 'echo "**Triggered by:** $CI_COMMIT_AUTHOR_NAME" >> pipeline-report.md'
     - echo "" >> pipeline-report.md
     - echo "## Pipeline Status" >> pipeline-report.md
-    - echo "- Configuration Validation: ✅" >> pipeline-report.md
-    - echo "- Unit Tests: ✅" >> pipeline-report.md
-    - echo "- Integration Tests: ⚠️ (May fail without real API keys)" >> pipeline-report.md
-    - echo "- Code Quality: ✅" >> pipeline-report.md
-    - echo "- Security Scan: ⚠️ (Warnings expected)" >> pipeline-report.md
-    - echo "- Package Build: ✅" >> pipeline-report.md
-    - echo "- Docker Build: ✅" >> pipeline-report.md
+    - 'echo "- Configuration Validation: [OK]" >> pipeline-report.md'
+    - 'echo "- Unit Tests: [OK]" >> pipeline-report.md'
+    - 'echo "- Integration Tests: [WARNING] (May fail without real API keys)" >> pipeline-report.md'
+    - 'echo "- Code Quality: [OK]" >> pipeline-report.md'
+    - 'echo "- Security Scan: [WARNING] (Warnings expected)" >> pipeline-report.md'
+    - 'echo "- Package Build: [OK]" >> pipeline-report.md'
+    - 'echo "- Docker Build: [OK]" >> pipeline-report.md'
     - echo "" >> pipeline-report.md
     - echo "## Next Steps" >> pipeline-report.md
     - echo "1. Review test coverage reports" >> pipeline-report.md
     - echo "2. Address any security warnings" >> pipeline-report.md
     - echo "3. Deploy to staging environment (manual)" >> pipeline-report.md
     - echo "4. Deploy to production environment (manual)" >> pipeline-report.md
-    - echo "✅ Report generated"
+    - echo "[OK] Report generated"
   artifacts:
     paths:
       - pipeline-report.md
