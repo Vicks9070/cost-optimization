@@ -5,6 +5,7 @@ Datadog API client for fetching cost and usage data
 import os
 import logging
 from datetime import datetime, timedelta
+import re
 from typing import Dict, List, Optional, Any
 import pandas as pd
 from datadog_api_client import ApiClient, Configuration
@@ -30,8 +31,9 @@ class DatadogCostClient:
         """
         self.api_key = api_key or os.getenv("DD_API_KEY")
         self.app_key = app_key or os.getenv("DD_APP_KEY")
-        # Respect environment variable when no explicit site is provided
-        self.site = site or os.getenv("DD_SITE", "datadoghq.com")
+        # Respect environment variable when no explicit site is provided and normalize
+        raw_site = site or os.getenv("DD_SITE", "datadoghq.com")
+        self.site = self._normalize_site(raw_site)
         
         if not self.api_key or not self.app_key:
             raise ValueError("API key and App key are required. Set DD_API_KEY and DD_APP_KEY environment variables.")
@@ -47,6 +49,20 @@ class DatadogCostClient:
         self.usage_api_v1 = UsageMeteringApiV1(self.api_client)
         
         logger.info(f"Initialized Datadog client for site: {self.site}")
+
+    def _normalize_site(self, site_value: str) -> str:
+        """Normalize site inputs like 'app.datadoghq.com' or full URLs to 'datadoghq.com' style."""
+        if not site_value:
+            return "datadoghq.com"
+        site_value = site_value.strip().lower()
+        # Strip protocol
+        site_value = re.sub(r"^https?://", "", site_value)
+        # Strip path and trailing slashes
+        site_value = site_value.split("/")[0]
+        # Strip leading 'app.' if present
+        if site_value.startswith("app."):
+            site_value = site_value[len("app."):]
+        return site_value
     
     def get_usage_summary(self, start_date: datetime, end_date: datetime) -> Dict[str, Any]:
         """
