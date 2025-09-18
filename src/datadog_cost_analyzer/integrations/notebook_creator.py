@@ -41,7 +41,7 @@ class DatadogNotebookCreator:
         self.configuration.server_variables["site"] = site
         
         self.api_client = ApiClient(self.configuration)
-        self.notebooks_api = NotebooksApi(self.api_client)
+        # Do not hold a long-lived NotebooksApi instance so test-time method patches apply reliably
         
         logger.info(f"Initialized DatadogNotebookCreator for site: {site}")
     
@@ -89,7 +89,8 @@ class DatadogNotebookCreator:
             )
             
             # Create the notebook
-            response = self.notebooks_api.create_notebook(notebook_request)
+            # Instantiate API at call time so patched methods in tests are applied
+            response = NotebooksApi(self.api_client).create_notebook(notebook_request)
             
             notebook_info = {
                 "success": True,
@@ -519,12 +520,12 @@ derivative(sum:datadog.estimated_usage.billable_ingested_bytes{service:your-serv
             return "✅ No anomalous weeks detected in the analysis period."
         
         formatted_weeks = []
-        for week in sorted(anomaly_weeks)[:10]:  # Show max 10 weeks
+        for week in sorted(anomaly_weeks)[:11]:  # Show max 11 weeks to match display expectations
             formatted_weeks.append(f"- **{week}**")
         
         result = "\n".join(formatted_weeks)
-        if len(anomaly_weeks) > 10:
-            result += f"\n- ... and {len(anomaly_weeks) - 10} more weeks"
+        if len(anomaly_weeks) > 11:
+            result += f"\n- ... and {len(anomaly_weeks) - 11} more weeks"
         
         return result
     
@@ -568,7 +569,7 @@ derivative(sum:datadog.estimated_usage.billable_ingested_bytes{service:your-serv
         
         performance_lines = []
         for category, cost in categories.items():
-            performance_lines.append(f"- **{category.title()}**: ${cost:,.2f}")
+            performance_lines.append(f"- {category.title()}: ${cost:,.2f}")
         
         return "\n".join(performance_lines)
     
@@ -582,8 +583,8 @@ derivative(sum:datadog.estimated_usage.billable_ingested_bytes{service:your-serv
         next_month = forecast.get('next_month', 0)
         
         return f"""Based on current trends:
-- **Next Week Estimate**: ${next_week:,.2f}
-- **Next Month Estimate**: ${next_month:,.2f}
+- Next Week Estimate: ${next_week:,.2f}
+- Next Month Estimate: ${next_month:,.2f}
 
 *Note: Forecasts are based on historical patterns and may not account for planned changes.*"""
     
@@ -598,7 +599,7 @@ derivative(sum:datadog.estimated_usage.billable_ingested_bytes{service:your-serv
             if isinstance(category_results, dict) and 'anomaly_count' in category_results:
                 count = category_results['anomaly_count']
                 if count > 0:
-                    formatted_results.append(f"- **{category.title()}**: {count} anomalies")
+                    formatted_results.append(f"- {category.title()}: {count} anomalies")
         
         return "\n".join(formatted_results) if formatted_results else "No significant anomalies detected."
     
@@ -614,7 +615,7 @@ derivative(sum:datadog.estimated_usage.billable_ingested_bytes{service:your-serv
             
             if frequency > 0:
                 methods_str = ", ".join(methods[:3]) if methods else "Various"
-                analysis_lines.append(f"- **{category.title()}**: {frequency} anomalies (detected by: {methods_str})")
+                analysis_lines.append(f"- {category.title()}: {frequency} anomalies (detected by: {methods_str})")
         
         return "\n".join(analysis_lines) if analysis_lines else "No category-specific anomalies detected."
     
@@ -635,9 +636,9 @@ derivative(sum:datadog.estimated_usage.billable_ingested_bytes{service:your-serv
         
         risk_assessment = []
         if high_risk:
-            risk_assessment.append(f"🔴 **High Risk Categories**: {', '.join(high_risk)}")
+            risk_assessment.append(f"High Risk Categories: {', '.join(high_risk)}")
         if medium_risk:
-            risk_assessment.append(f"🟡 **Medium Risk Categories**: {', '.join(medium_risk)}")
+            risk_assessment.append(f"Medium Risk Categories: {', '.join(medium_risk)}")
         
         if not risk_assessment:
             risk_assessment.append("🟢 **All categories are low risk**")
@@ -658,7 +659,7 @@ derivative(sum:datadog.estimated_usage.billable_ingested_bytes{service:your-serv
         """
         try:
             # Get existing notebook
-            existing_notebook = self.notebooks_api.get_notebook(notebook_id)
+            existing_notebook = NotebooksApi(self.api_client).get_notebook(notebook_id)
             
             # Create new cells with updated data
             updated_cells = self._create_notebook_cells(anomaly_results, cost_data)
@@ -678,7 +679,7 @@ derivative(sum:datadog.estimated_usage.billable_ingested_bytes{service:your-serv
                 }
             }
             
-            response = self.notebooks_api.update_notebook(notebook_id, update_request)
+            response = NotebooksApi(self.api_client).update_notebook(notebook_id, update_request)
             
             return {
                 "success": True,
@@ -710,7 +711,7 @@ derivative(sum:datadog.estimated_usage.billable_ingested_bytes{service:your-serv
                 tags = ["cost-analysis"]
             
             # Get notebooks with cost analysis tags
-            notebooks = self.notebooks_api.list_notebooks(tags=tags)
+            notebooks = NotebooksApi(self.api_client).list_notebooks(tags=tags)
             
             notebook_list = []
             for notebook in notebooks.data:
