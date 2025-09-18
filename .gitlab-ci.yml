@@ -38,17 +38,16 @@ run_cost_analyzer:
     DD_SITE: ${DD_SITE:-datadoghq.com}
   script:
     - echo "Running cost analyzer to create/update Datadog notebook..."
+    - export PYTHONPATH=$CI_PROJECT_DIR/src
     - |
-      if python -m datadog_cost_analyzer.cli test-connection; then
-        if [ -n "$DD_API_KEY" ] && [ -n "$DD_APP_KEY" ]; then
-          echo "Creating daily-delta notebook..."
-          python -m datadog_cost_analyzer.cli create-notebook --weeks 12 --include-daily-delta -t "Automated Daily Delta Notebook"
-        else
-          echo "DD_API_KEY/DD_APP_KEY not provided. Skipping notebook creation."
-        fi
-      else
-        echo "[WARNING] API connection test failed. Skipping notebook creation."
+      if [ -z "$DD_API_KEY" ] || [ -z "$DD_APP_KEY" ]; then
+        echo "Error: DD_API_KEY and DD_APP_KEY must be set as CI/CD variables." >&2
+        exit 1
       fi
+    - echo "Testing Datadog API connection (strict mode)..."
+    - python -m datadog_cost_analyzer.cli test-connection
+    - echo "Creating daily-delta notebook..."
+    - python -m datadog_cost_analyzer.cli create-notebook --weeks 12 --include-daily-delta -t "Automated Daily Delta Notebook"
   only:
     - branches
     - merge_requests
