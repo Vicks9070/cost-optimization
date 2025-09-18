@@ -16,3 +16,5 @@
 2025-09-18 11:09:56,089 - werkzeug - INFO - 127.0.0.1 - - [18/Sep/2025 11:09:56] "GET /api/health HTTP/1.1" 200 -
 2025-09-18 11:09:56,304 - werkzeug - INFO - 10.2.16.11 - - [18/Sep/2025 11:09:56] "GET / HTTP/1.1" 200 -
 2025-09-18 11:09:59,818 - werkzeug - INFO - 10.2.16.11 - - [18/Sep/2025 11:09:59] "GET / HTTP/1.1" 200 -
+2025-09-18 11:53:12,783 - datadog_cost_analyzer.utils.config - INFO - Logging configured
+2025-09-18 11:53:17,871 - datadog_cost_analyzer.utils.config - INFO - Logging configured

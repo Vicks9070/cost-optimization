@@ -16,6 +16,7 @@ from .analysis.anomaly_detector import AnomalyDetector
 from .visualization.charts import CostVisualizer
 from .web.app import create_app
 from .utils.config import ConfigManager
+from .integrations.notebook_creator import DatadogNotebookCreator
 
 logger = logging.getLogger(__name__)
 
@@ -323,6 +324,159 @@ def configure(ctx, api_key, app_key, site):
         click.echo("Configuration saved")
     except Exception as e:
         click.echo(f"Error saving configuration: {e}", err=True)
+        sys.exit(1)
+
+
+@cli.command()
+@click.option('--weeks', '-w', default=12, help='Number of weeks to analyze')
+@click.option('--title', '-t', help='Custom title for the notebook')
+@click.option('--tags', help='Comma-separated tags for the notebook')
+@click.option('--update-existing', help='Update existing notebook by ID instead of creating new')
+@click.pass_context
+def create_notebook(ctx, weeks, title, tags, update_existing):
+    """Create or update a Datadog notebook with cost anomaly analysis"""
+    
+    try:
+        config_manager = ctx.obj['config_manager']
+        
+        # Get API credentials
+        api_key = config_manager.get_value('datadog.api_key')
+        app_key = config_manager.get_value('datadog.app_key')
+        site = config_manager.get_value('datadog.site', 'datadoghq.com')
+        
+        if not api_key or not app_key:
+            click.echo("Error: Datadog API credentials not configured. Run 'configure' command first.", err=True)
+            sys.exit(1)
+        
+        click.echo(f"Creating cost anomaly analysis notebook...")
+        
+        # Initialize components
+        client = DatadogCostClient(api_key, app_key, site)
+        analyzer = CostAnalyzer(config_manager.get_config().get('analysis', {}))
+        anomaly_detector = AnomalyDetector(config_manager.get_config().get('analysis', {}))
+        notebook_creator = DatadogNotebookCreator(api_key, app_key, site)
+        
+        # Fetch and analyze cost data
+        click.echo("Fetching cost data...")
+        cost_data = client.get_usage_data(weeks=weeks)
+        
+        if not cost_data:
+            click.echo("Error: No cost data retrieved", err=True)
+            sys.exit(1)
+        
+        click.echo("Processing cost data...")
+        processed_data = analyzer.process_cost_data(cost_data)
+        
+        click.echo("Detecting anomalies...")
+        anomaly_results = anomaly_detector.detect_anomalies(processed_data)
+        
+        # Prepare data for notebook
+        cost_summary = {
+            'total_cost': float(processed_data['total_cost'].sum()),
+            'period': f'Last {weeks} weeks',
+            'trend': analyzer.analyze_trends(processed_data).get('overall_trend', 'stable'),
+            'categories': {
+                col.replace('_cost', ''): float(processed_data[col].sum()) 
+                for col in processed_data.columns 
+                if col.endswith('_cost') and col != 'total_cost'
+            },
+            'forecast': analyzer.forecast_costs(processed_data, periods=4)
+        }
+        
+        # Parse tags
+        tag_list = []
+        if tags:
+            tag_list = [tag.strip() for tag in tags.split(',')]
+        tag_list.extend(['cost-analysis', 'anomaly-detection', 'financial-monitoring'])
+        
+        # Create or update notebook
+        if update_existing:
+            click.echo(f"Updating existing notebook: {update_existing}")
+            result = notebook_creator.update_notebook(update_existing, anomaly_results, cost_summary)
+        else:
+            click.echo("Creating new notebook...")
+            result = notebook_creator.create_cost_anomaly_notebook(
+                anomaly_results, 
+                cost_summary, 
+                title=title,
+                tags=tag_list
+            )
+        
+        if result.get('success'):
+            click.echo(f"✅ Notebook {'updated' if update_existing else 'created'} successfully!")
+            click.echo(f"📊 Notebook URL: {result.get('notebook_url', 'N/A')}")
+            click.echo(f"📝 Title: {result.get('title', 'N/A')}")
+            click.echo(f"📅 {'Updated' if update_existing else 'Created'} at: {result.get('created_at' if not update_existing else 'updated_at', 'N/A')}")
+            click.echo(f"📋 Cell count: {result.get('cell_count', 'N/A')}")
+            click.echo(f"🏷️ Tags: {', '.join(result.get('tags', []))}")
+            
+            # Show anomaly summary
+            summary = anomaly_results.get('summary', {})
+            if summary.get('total_anomalies', 0) > 0:
+                click.echo(f"\n🚨 Anomalies detected: {summary['total_anomalies']}")
+                severity = summary.get('severity_distribution', {})
+                click.echo(f"   - High: {severity.get('high', 0)}")
+                click.echo(f"   - Medium: {severity.get('medium', 0)}")
+                click.echo(f"   - Low: {severity.get('low', 0)}")
+            else:
+                click.echo("\n✅ No significant anomalies detected")
+                
+        else:
+            click.echo(f"❌ Failed to {'update' if update_existing else 'create'} notebook: {result.get('error', 'Unknown error')}", err=True)
+            sys.exit(1)
+            
+    except Exception as e:
+        click.echo(f"Error: {str(e)}", err=True)
+        logger.exception("Failed to create notebook")
+        sys.exit(1)
+
+
+@cli.command()
+@click.option('--tags', help='Filter notebooks by tags (comma-separated)')
+@click.pass_context
+def list_notebooks(ctx, tags):
+    """List existing cost analysis notebooks"""
+    
+    try:
+        config_manager = ctx.obj['config_manager']
+        
+        # Get API credentials
+        api_key = config_manager.get_value('datadog.api_key')
+        app_key = config_manager.get_value('datadog.app_key')
+        site = config_manager.get_value('datadog.site', 'datadoghq.com')
+        
+        if not api_key or not app_key:
+            click.echo("Error: Datadog API credentials not configured. Run 'configure' command first.", err=True)
+            sys.exit(1)
+        
+        notebook_creator = DatadogNotebookCreator(api_key, app_key, site)
+        
+        # Parse tags
+        tag_list = None
+        if tags:
+            tag_list = [tag.strip() for tag in tags.split(',')]
+        
+        click.echo("Fetching cost analysis notebooks...")
+        notebooks = notebook_creator.list_cost_analysis_notebooks(tags=tag_list)
+        
+        if not notebooks:
+            click.echo("No cost analysis notebooks found.")
+            return
+        
+        click.echo(f"\nFound {len(notebooks)} cost analysis notebook(s):\n")
+        
+        for i, notebook in enumerate(notebooks, 1):
+            click.echo(f"{i}. {notebook['name']}")
+            click.echo(f"   ID: {notebook['id']}")
+            click.echo(f"   URL: {notebook['url']}")
+            click.echo(f"   Created: {notebook.get('created_at', 'N/A')}")
+            click.echo(f"   Modified: {notebook.get('modified_at', 'N/A')}")
+            click.echo(f"   Tags: {', '.join(notebook.get('tags', []))}")
+            click.echo()
+            
+    except Exception as e:
+        click.echo(f"Error: {str(e)}", err=True)
+        logger.exception("Failed to list notebooks")
         sys.exit(1)
 
 

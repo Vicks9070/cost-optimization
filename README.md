@@ -25,6 +25,12 @@ A comprehensive tool for analyzing Datadog usage costs and detecting anomalies i
 - **Command Line Interface**: Scriptable analysis and automation
 - **API Endpoints**: RESTful API for integration with other tools
 
+### 📓 **Datadog Notebook Integration**
+- **Automated Notebook Creation**: Generate comprehensive cost analysis notebooks directly in Datadog
+- **Rich Documentation**: Executive summaries, detailed analysis, and investigation guides
+- **Interactive Queries**: Pre-built Datadog queries for further investigation
+- **Scheduled Updates**: Update existing notebooks with fresh analysis data
+
 ## Quick Start
 
 ### Prerequisites
@@ -85,6 +91,28 @@ python -m datadog_cost_analyzer.cli detect-anomalies --weeks 8 --threshold 2.5
 Generate HTML report:
 ```bash
 python -m datadog_cost_analyzer.cli analyze --weeks 12 --format html --output report.html
+```
+
+#### Datadog Notebook Integration
+
+Create a comprehensive cost anomaly analysis notebook in Datadog:
+```bash
+python -m datadog_cost_analyzer.cli create-notebook --weeks 12 --title "Weekly Cost Analysis"
+```
+
+Create notebook with custom tags:
+```bash
+python -m datadog_cost_analyzer.cli create-notebook --weeks 8 --tags "production,cost-monitoring,weekly-review"
+```
+
+Update an existing notebook:
+```bash
+python -m datadog_cost_analyzer.cli create-notebook --update-existing NOTEBOOK_ID --weeks 12
+```
+
+List existing cost analysis notebooks:
+```bash
+python -m datadog_cost_analyzer.cli list-notebooks --tags "cost-analysis"
 ```
 
 ## Configuration

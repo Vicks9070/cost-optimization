@@ -1,10 +1,37 @@
 from setuptools import setup, find_packages
+import os
 
-with open("README.md", "r", encoding="utf-8") as fh:
-    long_description = fh.read()
+# Get the directory containing this file
+here = os.path.abspath(os.path.dirname(__file__))
 
-with open("requirements.txt", "r", encoding="utf-8") as fh:
-    requirements = [line.strip() for line in fh if line.strip() and not line.startswith("#")]
+# Read README
+readme_path = os.path.join(here, "README.md")
+try:
+    with open(readme_path, "r", encoding="utf-8") as fh:
+        long_description = fh.read()
+except FileNotFoundError:
+    long_description = "A comprehensive tool for analyzing Datadog usage costs and detecting anomalies"
+
+# Read requirements
+requirements_path = os.path.join(here, "requirements.txt")
+try:
+    with open(requirements_path, "r", encoding="utf-8") as fh:
+        requirements = [line.strip() for line in fh if line.strip() and not line.startswith("#")]
+except FileNotFoundError:
+    # Fallback to hardcoded requirements if file not found
+    requirements = [
+        "pandas>=1.3.0",
+        "numpy>=1.21.0",
+        "plotly>=5.0.0",
+        "flask>=2.0.0",
+        "datadog-api-client>=2.0.0",
+        "scikit-learn>=1.0.0",
+        "scipy>=1.7.0",
+        "statsmodels>=0.13.0",
+        "click>=8.0.0",
+        "pyyaml>=6.0",
+        "python-dotenv>=0.19.0"
+    ]
 
 setup(
     name="datadog-cost-analyzer",
