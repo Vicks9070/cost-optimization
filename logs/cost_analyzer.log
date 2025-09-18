@@ -1,0 +1,18 @@
+2025-09-18 11:09:48,775 - datadog_cost_analyzer.utils.config - INFO - Logging configured
+2025-09-18 11:09:48,778 - datadog_cost_analyzer.utils.config - INFO - Configuration loaded from config/config.yaml
+2025-09-18 11:09:48,778 - datadog_cost_analyzer.web.app - ERROR - Failed to initialize components: API key and App key are required. Set DD_API_KEY and DD_APP_KEY environment variables.
+2025-09-18 11:09:48,782 - werkzeug - INFO - [31m[1mWARNING: This is a development server. Do not use it in a production deployment. Use a production WSGI server instead.[0m
+ * Running on all addresses (0.0.0.0)
+ * Running on http://127.0.0.1:12000
+ * Running on http://10.2.12.142:12000
+2025-09-18 11:09:48,782 - werkzeug - INFO - [33mPress CTRL+C to quit[0m
+2025-09-18 11:09:49,277 - werkzeug - INFO - 10.2.16.11 - - [18/Sep/2025 11:09:49] "GET / HTTP/1.1" 200 -
+2025-09-18 11:09:49,794 - werkzeug - INFO - 10.2.24.16 - - [18/Sep/2025 11:09:49] "GET / HTTP/1.1" 200 -
+2025-09-18 11:09:50,334 - werkzeug - INFO - 10.2.24.16 - - [18/Sep/2025 11:09:50] "[35m[1mGET /api/analysis?weeks=12 HTTP/1.1[0m" 500 -
+2025-09-18 11:09:50,335 - werkzeug - INFO - 10.2.24.16 - - [18/Sep/2025 11:09:50] "[35m[1mGET /api/charts/trend?weeks=12 HTTP/1.1[0m" 500 -
+2025-09-18 11:09:50,336 - werkzeug - INFO - 10.2.24.16 - - [18/Sep/2025 11:09:50] "[35m[1mGET /api/charts/distribution?weeks=12 HTTP/1.1[0m" 500 -
+2025-09-18 11:09:50,337 - werkzeug - INFO - 10.2.24.16 - - [18/Sep/2025 11:09:50] "[35m[1mGET /api/charts/wow?weeks=12 HTTP/1.1[0m" 500 -
+2025-09-18 11:09:52,790 - werkzeug - INFO - 10.2.16.11 - - [18/Sep/2025 11:09:52] "GET / HTTP/1.1" 200 -
+2025-09-18 11:09:56,089 - werkzeug - INFO - 127.0.0.1 - - [18/Sep/2025 11:09:56] "GET /api/health HTTP/1.1" 200 -
+2025-09-18 11:09:56,304 - werkzeug - INFO - 10.2.16.11 - - [18/Sep/2025 11:09:56] "GET / HTTP/1.1" 200 -
+2025-09-18 11:09:59,818 - werkzeug - INFO - 10.2.16.11 - - [18/Sep/2025 11:09:59] "GET / HTTP/1.1" 200 -

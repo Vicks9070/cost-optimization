@@ -1,0 +1,469 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Datadog Cost Analyzer</title>
+    <script src="https://cdn.plot.ly/plotly-latest.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/axios/dist/axios.min.js"></script>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
+    <style>
+        .chart-container {
+            background: white;
+            border-radius: 8px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+            margin-bottom: 20px;
+            padding: 20px;
+        }
+        .metric-card {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            border-radius: 8px;
+            padding: 20px;
+            margin-bottom: 20px;
+        }
+        .metric-value {
+            font-size: 2rem;
+            font-weight: bold;
+        }
+        .metric-label {
+            font-size: 0.9rem;
+            opacity: 0.9;
+        }
+        .anomaly-alert {
+            background: linear-gradient(135deg, #ff6b6b 0%, #ee5a24 100%);
+        }
+        .cost-driver {
+            background: linear-gradient(135deg, #4ecdc4 0%, #44a08d 100%);
+        }
+        .forecast {
+            background: linear-gradient(135deg, #feca57 0%, #ff9ff3 100%);
+        }
+        .loading {
+            text-align: center;
+            padding: 40px;
+        }
+        .navbar-brand {
+            font-weight: bold;
+        }
+        .sidebar {
+            background: #f8f9fa;
+            min-height: calc(100vh - 56px);
+            padding: 20px 0;
+        }
+        .nav-link {
+            color: #495057;
+            padding: 10px 20px;
+            border-radius: 5px;
+            margin: 2px 10px;
+        }
+        .nav-link:hover, .nav-link.active {
+            background: #e9ecef;
+            color: #495057;
+        }
+        .main-content {
+            padding: 20px;
+        }
+    </style>
+</head>
+<body>
+    <!-- Navigation -->
+    <nav class="navbar navbar-expand-lg navbar-dark bg-primary">
+        <div class="container-fluid">
+            <a class="navbar-brand" href="#">
+                <i class="fas fa-chart-line me-2"></i>
+                Datadog Cost Analyzer
+            </a>
+            <div class="navbar-nav ms-auto">
+                <a class="nav-link" href="#" onclick="exportReport('html')">
+                    <i class="fas fa-download me-1"></i>Export HTML
+                </a>
+                <a class="nav-link" href="#" onclick="exportReport('json')">
+                    <i class="fas fa-file-code me-1"></i>Export JSON
+                </a>
+            </div>
+        </div>
+    </nav>
+
+    <div class="container-fluid">
+        <div class="row">
+            <!-- Sidebar -->
+            <div class="col-md-2 sidebar">
+                <nav class="nav flex-column">
+                    <a class="nav-link active" href="#" onclick="showSection('dashboard')">
+                        <i class="fas fa-tachometer-alt me-2"></i>Dashboard
+                    </a>
+                    <a class="nav-link" href="#" onclick="showSection('trends')">
+                        <i class="fas fa-chart-line me-2"></i>Cost Trends
+                    </a>
+                    <a class="nav-link" href="#" onclick="showSection('anomalies')">
+                        <i class="fas fa-exclamation-triangle me-2"></i>Anomalies
+                    </a>
+                    <a class="nav-link" href="#" onclick="showSection('forecast')">
+                        <i class="fas fa-crystal-ball me-2"></i>Forecast
+                    </a>
+                    <a class="nav-link" href="#" onclick="showSection('efficiency')">
+                        <i class="fas fa-cogs me-2"></i>Efficiency
+                    </a>
+                    <a class="nav-link" href="#" onclick="showSection('settings')">
+                        <i class="fas fa-cog me-2"></i>Settings
+                    </a>
+                </nav>
+            </div>
+
+            <!-- Main Content -->
+            <div class="col-md-10 main-content">
+                <!-- Dashboard Section -->
+                <div id="dashboard-section" class="content-section">
+                    <div class="d-flex justify-content-between align-items-center mb-4">
+                        <h2>Cost Analysis Dashboard</h2>
+                        <div>
+                            <select id="weeks-selector" class="form-select" onchange="refreshData()">
+                                <option value="4">Last 4 weeks</option>
+                                <option value="8">Last 8 weeks</option>
+                                <option value="12" selected>Last 12 weeks</option>
+                                <option value="24">Last 24 weeks</option>
+                            </select>
+                        </div>
+                    </div>
+
+                    <!-- Metric Cards -->
+                    <div class="row" id="metric-cards">
+                        <div class="col-md-3">
+                            <div class="metric-card">
+                                <div class="metric-value" id="current-cost">$0</div>
+                                <div class="metric-label">Current Week Cost</div>
+                            </div>
+                        </div>
+                        <div class="col-md-3">
+                            <div class="metric-card anomaly-alert">
+                                <div class="metric-value" id="anomaly-count">0</div>
+                                <div class="metric-label">Anomalies Detected</div>
+                            </div>
+                        </div>
+                        <div class="col-md-3">
+                            <div class="metric-card cost-driver">
+                                <div class="metric-value" id="top-driver">-</div>
+                                <div class="metric-label">Top Cost Driver</div>
+                            </div>
+                        </div>
+                        <div class="col-md-3">
+                            <div class="metric-card forecast">
+                                <div class="metric-value" id="forecast-trend">-</div>
+                                <div class="metric-label">Forecast Trend</div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Charts -->
+                    <div class="row">
+                        <div class="col-md-8">
+                            <div class="chart-container">
+                                <h5>Weekly Cost Trends</h5>
+                                <div id="trend-chart" class="loading">
+                                    <i class="fas fa-spinner fa-spin"></i> Loading chart...
+                                </div>
+                            </div>
+                        </div>
+                        <div class="col-md-4">
+                            <div class="chart-container">
+                                <h5>Cost Distribution</h5>
+                                <div id="distribution-chart" class="loading">
+                                    <i class="fas fa-spinner fa-spin"></i> Loading chart...
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="row">
+                        <div class="col-md-12">
+                            <div class="chart-container">
+                                <h5>Week-over-Week Changes</h5>
+                                <div id="wow-chart" class="loading">
+                                    <i class="fas fa-spinner fa-spin"></i> Loading chart...
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Other Sections (hidden by default) -->
+                <div id="trends-section" class="content-section" style="display: none;">
+                    <h2>Cost Trends Analysis</h2>
+                    <div class="chart-container">
+                        <div id="detailed-trend-chart" class="loading">
+                            <i class="fas fa-spinner fa-spin"></i> Loading chart...
+                        </div>
+                    </div>
+                    <div class="chart-container">
+                        <div id="stacked-chart" class="loading">
+                            <i class="fas fa-spinner fa-spin"></i> Loading chart...
+                        </div>
+                    </div>
+                </div>
+
+                <div id="anomalies-section" class="content-section" style="display: none;">
+                    <h2>Anomaly Detection</h2>
+                    <div class="chart-container">
+                        <div id="anomaly-chart" class="loading">
+                            <i class="fas fa-spinner fa-spin"></i> Loading chart...
+                        </div>
+                    </div>
+                    <div class="chart-container">
+                        <h5>Anomaly Summary</h5>
+                        <div id="anomaly-summary" class="loading">
+                            <i class="fas fa-spinner fa-spin"></i> Loading data...
+                        </div>
+                    </div>
+                </div>
+
+                <div id="forecast-section" class="content-section" style="display: none;">
+                    <h2>Cost Forecast</h2>
+                    <div class="chart-container">
+                        <div id="forecast-chart" class="loading">
+                            <i class="fas fa-spinner fa-spin"></i> Loading chart...
+                        </div>
+                    </div>
+                </div>
+
+                <div id="efficiency-section" class="content-section" style="display: none;">
+                    <h2>Cost Efficiency Metrics</h2>
+                    <div class="chart-container">
+                        <div id="efficiency-chart" class="loading">
+                            <i class="fas fa-spinner fa-spin"></i> Loading chart...
+                        </div>
+                    </div>
+                </div>
+
+                <div id="settings-section" class="content-section" style="display: none;">
+                    <h2>Settings</h2>
+                    <div class="chart-container">
+                        <h5>Analysis Configuration</h5>
+                        <form id="settings-form">
+                            <div class="row">
+                                <div class="col-md-6">
+                                    <div class="mb-3">
+                                        <label class="form-label">Z-Score Threshold</label>
+                                        <input type="number" class="form-control" id="z-score-threshold" step="0.1" value="2.5">
+                                    </div>
+                                    <div class="mb-3">
+                                        <label class="form-label">IQR Multiplier</label>
+                                        <input type="number" class="form-control" id="iqr-multiplier" step="0.1" value="1.5">
+                                    </div>
+                                </div>
+                                <div class="col-md-6">
+                                    <div class="mb-3">
+                                        <label class="form-label">Min Change Percentage</label>
+                                        <input type="number" class="form-control" id="min-change-percent" step="1" value="10">
+                                    </div>
+                                    <div class="mb-3">
+                                        <label class="form-label">Lookback Weeks</label>
+                                        <input type="number" class="form-control" id="lookback-weeks" value="12">
+                                    </div>
+                                </div>
+                            </div>
+                            <button type="button" class="btn btn-primary" onclick="updateSettings()">
+                                Update Settings
+                            </button>
+                        </form>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        let currentAnalysis = null;
+
+        // Initialize the dashboard
+        document.addEventListener('DOMContentLoaded', function() {
+            refreshData();
+        });
+
+        // Show/hide sections
+        function showSection(sectionName) {
+            // Hide all sections
+            document.querySelectorAll('.content-section').forEach(section => {
+                section.style.display = 'none';
+            });
+            
+            // Remove active class from all nav links
+            document.querySelectorAll('.nav-link').forEach(link => {
+                link.classList.remove('active');
+            });
+            
+            // Show selected section
+            document.getElementById(sectionName + '-section').style.display = 'block';
+            
+            // Add active class to clicked nav link
+            event.target.classList.add('active');
+            
+            // Load section-specific data
+            loadSectionData(sectionName);
+        }
+
+        // Load section-specific data
+        function loadSectionData(sectionName) {
+            const weeks = document.getElementById('weeks-selector').value;
+            
+            switch(sectionName) {
+                case 'trends':
+                    loadChart('trend', 'detailed-trend-chart', weeks);
+                    loadChart('stacked', 'stacked-chart', weeks);
+                    break;
+                case 'anomalies':
+                    loadChart('anomalies', 'anomaly-chart', weeks);
+                    loadAnomalySummary(weeks);
+                    break;
+                case 'forecast':
+                    loadChart('forecast', 'forecast-chart', weeks);
+                    break;
+                case 'efficiency':
+                    loadChart('efficiency', 'efficiency-chart', weeks);
+                    break;
+            }
+        }
+
+        // Refresh all data
+        function refreshData() {
+            const weeks = document.getElementById('weeks-selector').value;
+            
+            // Load analysis data
+            axios.get(`/api/analysis?weeks=${weeks}`)
+                .then(response => {
+                    currentAnalysis = response.data;
+                    updateMetricCards(currentAnalysis);
+                })
+                .catch(error => {
+                    console.error('Error loading analysis:', error);
+                    showError('Failed to load analysis data');
+                });
+            
+            // Load dashboard charts
+            loadChart('trend', 'trend-chart', weeks);
+            loadChart('distribution', 'distribution-chart', weeks);
+            loadChart('wow', 'wow-chart', weeks);
+        }
+
+        // Load a specific chart
+        function loadChart(chartType, containerId, weeks) {
+            const container = document.getElementById(containerId);
+            container.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Loading chart...';
+            
+            axios.get(`/api/charts/${chartType}?weeks=${weeks}`)
+                .then(response => {
+                    Plotly.newPlot(containerId, response.data.data, response.data.layout, {responsive: true});
+                })
+                .catch(error => {
+                    console.error(`Error loading ${chartType} chart:`, error);
+                    container.innerHTML = `<div class="alert alert-danger">Failed to load ${chartType} chart</div>`;
+                });
+        }
+
+        // Update metric cards
+        function updateMetricCards(analysis) {
+            if (analysis.summary && analysis.summary.total_cost) {
+                document.getElementById('current-cost').textContent = 
+                    '$' + analysis.summary.total_cost.current_week.toLocaleString();
+            }
+            
+            if (analysis.anomalies && analysis.anomalies.summary) {
+                document.getElementById('anomaly-count').textContent = 
+                    analysis.anomalies.summary.total_anomalies;
+            }
+            
+            if (analysis.cost_drivers && analysis.cost_drivers.length > 0) {
+                document.getElementById('top-driver').textContent = 
+                    analysis.cost_drivers[0].category;
+            }
+            
+            if (analysis.forecast && analysis.forecast.categories && analysis.forecast.categories.total) {
+                const trend = analysis.forecast.categories.total.trend_slope > 0 ? '↗️' : '↘️';
+                document.getElementById('forecast-trend').textContent = trend;
+            }
+        }
+
+        // Load anomaly summary
+        function loadAnomalySummary(weeks) {
+            if (currentAnalysis && currentAnalysis.anomalies) {
+                const anomalies = currentAnalysis.anomalies;
+                let html = '<div class="row">';
+                
+                // Summary stats
+                html += '<div class="col-md-4">';
+                html += '<h6>Detection Summary</h6>';
+                html += `<p>Total Anomalies: <strong>${anomalies.summary.total_anomalies}</strong></p>`;
+                html += `<p>High Severity: <strong>${anomalies.summary.severity_distribution.high}</strong></p>`;
+                html += `<p>Medium Severity: <strong>${anomalies.summary.severity_distribution.medium}</strong></p>`;
+                html += `<p>Low Severity: <strong>${anomalies.summary.severity_distribution.low}</strong></p>`;
+                html += '</div>';
+                
+                // Recommendations
+                html += '<div class="col-md-8">';
+                html += '<h6>Recommendations</h6>';
+                if (anomalies.recommendations && anomalies.recommendations.length > 0) {
+                    anomalies.recommendations.forEach(rec => {
+                        const alertClass = rec.priority === 'high' ? 'alert-danger' : 
+                                         rec.priority === 'medium' ? 'alert-warning' : 'alert-info';
+                        html += `<div class="alert ${alertClass}">`;
+                        html += `<strong>${rec.title}</strong><br>`;
+                        html += `${rec.description}<br>`;
+                        html += `<small><em>Action: ${rec.action}</em></small>`;
+                        html += '</div>';
+                    });
+                } else {
+                    html += '<p>No specific recommendations at this time.</p>';
+                }
+                html += '</div>';
+                
+                html += '</div>';
+                document.getElementById('anomaly-summary').innerHTML = html;
+            }
+        }
+
+        // Export report
+        function exportReport(format) {
+            const weeks = document.getElementById('weeks-selector').value;
+            window.open(`/api/export/report?weeks=${weeks}&format=${format}`, '_blank');
+        }
+
+        // Update settings
+        function updateSettings() {
+            const settings = {
+                analysis: {
+                    anomaly_detection: {
+                        z_score_threshold: parseFloat(document.getElementById('z-score-threshold').value),
+                        iqr_multiplier: parseFloat(document.getElementById('iqr-multiplier').value),
+                        min_change_percent: parseFloat(document.getElementById('min-change-percent').value)
+                    },
+                    lookback_weeks: parseInt(document.getElementById('lookback-weeks').value)
+                }
+            };
+            
+            axios.post('/api/config', settings)
+                .then(response => {
+                    alert('Settings updated successfully!');
+                    refreshData();
+                })
+                .catch(error => {
+                    console.error('Error updating settings:', error);
+                    alert('Failed to update settings');
+                });
+        }
+
+        // Show error message
+        function showError(message) {
+            const alertDiv = document.createElement('div');
+            alertDiv.className = 'alert alert-danger alert-dismissible fade show';
+            alertDiv.innerHTML = `
+                ${message}
+                <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+            `;
+            document.querySelector('.main-content').insertBefore(alertDiv, document.querySelector('.main-content').firstChild);
+        }
+    </script>
+
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/js/bootstrap.bundle.min.js"></script>
+</body>
+</html>

@@ -1,0 +1,67 @@
+# Datadog Cost Analyzer Configuration
+
+# Datadog API Configuration
+datadog:
+  api_key: "${DD_API_KEY}"
+  app_key: "${DD_APP_KEY}"
+  site: "datadoghq.com"  # or datadoghq.eu, us3.datadoghq.com, etc.
+
+# Analysis Configuration
+analysis:
+  # Number of weeks to analyze for trends
+  lookback_weeks: 12
+  
+  # Anomaly detection thresholds
+  anomaly_detection:
+    # Z-score threshold for anomaly detection
+    z_score_threshold: 2.5
+    
+    # IQR multiplier for outlier detection
+    iqr_multiplier: 1.5
+    
+    # Minimum percentage change to consider significant
+    min_change_percent: 10.0
+    
+    # Seasonal decomposition parameters
+    seasonal_periods: 4  # weeks in a month
+    
+  # Cost categories to analyze
+  cost_categories:
+    - "infrastructure"
+    - "logs"
+    - "metrics"
+    - "traces"
+    - "synthetics"
+    - "rum"
+    - "security"
+    - "network"
+
+# Reporting Configuration
+reporting:
+  # Output formats
+  formats:
+    - "html"
+    - "json"
+    - "csv"
+  
+  # Email notifications (optional)
+  email:
+    enabled: false
+    smtp_server: ""
+    smtp_port: 587
+    username: ""
+    password: ""
+    from_email: ""
+    to_emails: []
+
+# Web Interface Configuration
+web:
+  host: "0.0.0.0"
+  port: 12000
+  debug: false
+  
+# Logging Configuration
+logging:
+  level: "INFO"
+  format: "%(asctime)s - %(name)s - %(levelname)s - %(message)s"
+  file: "logs/cost_analyzer.log"
