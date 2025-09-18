@@ -271,6 +271,86 @@ class DatadogCostClient:
         
         return weekly_data
     
+    def get_daily_cost_delta_by_product(
+        self,
+        day_minus_1: Optional[datetime] = None,
+        day_minus_2: Optional[datetime] = None,
+    ) -> Dict[str, Any]:
+        """
+        Compute per-product cost delta between D-1 and D-2.
+
+        Args:
+            day_minus_1: Datetime for the D-1 date (defaults to yesterday UTC)
+            day_minus_2: Datetime for the D-2 date (defaults to two days ago UTC)
+
+        Returns:
+            Dict with per-product costs for both days and deltas, plus totals.
+        """
+        now = datetime.utcnow()
+        d1 = (day_minus_1 or (now - timedelta(days=1))).replace(hour=0, minute=0, second=0, microsecond=0)
+        d2 = (day_minus_2 or (now - timedelta(days=2))).replace(hour=0, minute=0, second=0, microsecond=0)
+
+        query_start = min(d1, d2)
+        query_end = max(d1, d2)
+
+        cost_data = self.get_estimated_cost(query_start, query_end)
+        estimated_cost_rows: List[Dict[str, Any]] = cost_data.get('estimated_cost', []) if isinstance(cost_data, dict) else []
+
+        d1_key = d1.strftime('%Y-%m-%d')
+        d2_key = d2.strftime('%Y-%m-%d')
+
+        per_product: Dict[str, Dict[str, float]] = {}
+
+        for row in estimated_cost_rows:
+            row_date = str(row.get('date', ''))
+            if row_date not in (d1_key, d2_key):
+                continue
+            product = str(row.get('product_name', 'unknown')).strip().lower()
+            cost_usd = float(row.get('cost_usd', 0.0) or 0.0)
+
+            if product not in per_product:
+                per_product[product] = {"day_minus_1": 0.0, "day_minus_2": 0.0}
+
+            if row_date == d1_key:
+                per_product[product]["day_minus_1"] += cost_usd
+            else:
+                per_product[product]["day_minus_2"] += cost_usd
+
+        products_out: Dict[str, Any] = {}
+        total_d1 = 0.0
+        total_d2 = 0.0
+        for product, values in per_product.items():
+            v1 = float(values.get("day_minus_1", 0.0))
+            v2 = float(values.get("day_minus_2", 0.0))
+            delta = v1 - v2
+            pct = (delta / v2 * 100.0) if v2 else (100.0 if v1 > 0 else 0.0)
+            total_d1 += v1
+            total_d2 += v2
+            products_out[product] = {
+                "day_minus_1": v1,
+                "day_minus_2": v2,
+                "delta": delta,
+                "percent_change": pct,
+            }
+
+        total_delta = total_d1 - total_d2
+        total_pct = (total_delta / total_d2 * 100.0) if total_d2 else (100.0 if total_d1 > 0 else 0.0)
+
+        return {
+            "dates": {
+                "day_minus_1": d1_key,
+                "day_minus_2": d2_key,
+            },
+            "products": products_out,
+            "totals": {
+                "day_minus_1": total_d1,
+                "day_minus_2": total_d2,
+                "delta": total_delta,
+                "percent_change": total_pct,
+            },
+            "has_changes": any(abs(p["delta"]) > 1e-9 for p in products_out.values()),
+        }
+
     def test_connection(self) -> bool:
         """
         Test the connection to Datadog API

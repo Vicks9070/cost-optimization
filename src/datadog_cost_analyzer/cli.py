@@ -332,8 +332,9 @@ def configure(ctx, api_key, app_key, site):
 @click.option('--title', '-t', help='Custom title for the notebook')
 @click.option('--tags', help='Comma-separated tags for the notebook')
 @click.option('--update-existing', help='Update existing notebook by ID instead of creating new')
+@click.option('--include-daily-delta', is_flag=True, default=False, help='Include D-1 vs D-2 cost delta section')
 @click.pass_context
-def create_notebook(ctx, weeks, title, tags, update_existing):
+def create_notebook(ctx, weeks, title, tags, update_existing, include_daily_delta):
     """Create or update a Datadog notebook with cost anomaly analysis"""
     
     try:
@@ -382,6 +383,15 @@ def create_notebook(ctx, weeks, title, tags, update_existing):
             },
             'forecast': analyzer.forecast_costs(processed_data, periods=4)
         }
+
+        # Optionally add daily delta comparison for D-1 vs D-2
+        if include_daily_delta:
+            click.echo("Computing daily D-1 vs D-2 cost delta...")
+            try:
+                daily_delta = client.get_daily_cost_delta_by_product()
+                cost_summary['daily_delta'] = daily_delta
+            except Exception as e:
+                click.echo(f"Warning: Failed to compute daily delta: {e}")
         
         # Parse tags
         tag_list = []

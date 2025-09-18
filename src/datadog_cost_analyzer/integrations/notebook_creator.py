@@ -140,8 +140,57 @@ class DatadogNotebookCreator:
         
         # 8. Investigation Queries Cell
         cells.append(self._create_investigation_queries_cell(anomaly_results))
+
+        # 9. Optional: Daily Cost Delta Cell if provided via cost_data
+        if isinstance(cost_data, dict) and cost_data.get('daily_delta'):
+            cells.append(self._create_daily_delta_cell(cost_data['daily_delta']))
         
         return cells
+
+    def _create_daily_delta_cell(self, daily_delta: Dict[str, Any]) -> NotebookCellCreateRequest:
+        """Create a Daily Cost Delta cell summarizing D-1 vs D-2 per product"""
+        dates = daily_delta.get('dates', {})
+        products = daily_delta.get('products', {})
+        totals = daily_delta.get('totals', {})
+
+        lines: List[str] = []
+        lines.append("# 📅 Daily Cost Delta (D-1 vs D-2)")
+        lines.append("")
+        lines.append(f"Period compared: {dates.get('day_minus_1', 'N/A')} vs {dates.get('day_minus_2', 'N/A')}")
+        lines.append("")
+        lines.append("## Per-Product Changes")
+
+        if not products:
+            lines.append("No per-product cost data available for this comparison.")
+        else:
+            # Sort by absolute delta descending
+            sorted_items = sorted(products.items(), key=lambda kv: abs(kv[1].get('delta', 0.0)), reverse=True)
+            for product, vals in sorted_items:
+                name = product.replace('_', ' ').title()
+                d1 = vals.get('day_minus_1', 0.0)
+                d2 = vals.get('day_minus_2', 0.0)
+                delta = vals.get('delta', 0.0)
+                pct = vals.get('percent_change', 0.0)
+                trend = "▲" if delta > 0 else ("▼" if delta < 0 else "→")
+                lines.append(f"- {name}: D-1 ${d1:,.2f} vs D-2 ${d2:,.2f} | Δ ${delta:,.2f} ({pct:+.1f}%) {trend}")
+
+        lines.append("")
+        lines.append("## Totals")
+        lines.append(
+            f"D-1: ${totals.get('day_minus_1', 0.0):,.2f} | D-2: ${totals.get('day_minus_2', 0.0):,.2f} | Δ ${totals.get('delta', 0.0):,.2f} ({totals.get('percent_change', 0.0):+.1f}%)"
+        )
+
+        markdown_content = "\n".join(lines)
+
+        return NotebookCellCreateRequest(
+            attributes=NotebookMarkdownCellAttributes(
+                definition=NotebookMarkdownCellDefinition(
+                    type=NotebookMarkdownCellDefinitionType.MARKDOWN,
+                    text=markdown_content
+                )
+            ),
+            type=NotebookCellResourceType.NOTEBOOK_CELLS
+        )
     
     def _create_executive_summary_cell(self, anomaly_results: Dict[str, Any], cost_data: Dict[str, Any]) -> NotebookCellCreateRequest:
         """Create executive summary cell"""
